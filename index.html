@@ -1,0 +1,1049 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Yosemite National Park — March 26–29, 2026</title>
+
+  <!-- Leaflet CSS -->
+  <link
+    rel="stylesheet"
+    href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"
+  />
+
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+      background: #1a1a1a;
+    }
+
+    #map {
+      width: 100vw;
+      height: 100vh;
+    }
+
+    /* ---- Legend panel ---- */
+    .legend-panel {
+      background: #fff;
+      border-radius: 8px;
+      padding: 14px 16px;
+      box-shadow: 0 2px 12px rgba(0,0,0,0.35);
+      min-width: 200px;
+      max-width: 230px;
+      font-size: 13px;
+      line-height: 1.4;
+    }
+
+    .legend-panel h2 {
+      font-size: 14px;
+      font-weight: 700;
+      color: #2c5f2e;
+      margin-bottom: 2px;
+    }
+
+    .legend-panel .dates {
+      font-size: 11px;
+      color: #777;
+      margin-bottom: 11px;
+    }
+
+    .legend-item {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 5px;
+      color: #333;
+    }
+
+    .legend-dot {
+      width: 13px;
+      height: 13px;
+      border-radius: 50%;
+      border: 2px solid rgba(0,0,0,0.18);
+      flex-shrink: 0;
+    }
+
+    .notice {
+      margin-top: 11px;
+      padding: 8px 9px;
+      background: #fff8e1;
+      border-left: 3px solid #f59e0b;
+      border-radius: 4px;
+      font-size: 11px;
+      color: #78350f;
+      line-height: 1.5;
+    }
+
+    /* ---- Trail distance/time label ---- */
+    .trail-lbl {
+      background: rgba(255,255,255,0.88);
+      border: 1px solid rgba(0,0,0,0.18);
+      border-radius: 3px;
+      padding: 2px 5px;
+      font-size: 10px;
+      font-weight: 600;
+      white-space: nowrap;
+      color: #333;
+      line-height: 1.45;
+      pointer-events: none;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.18);
+    }
+
+    /* ---- Bridge marker ---- */
+    .bridge-icon {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px;
+      height: 16px;
+      background: #fff;
+      border: 2px solid #555;
+      border-radius: 3px;
+      font-size: 9px;
+      font-weight: 700;
+      color: #333;
+      box-shadow: 0 1px 4px rgba(0,0,0,0.4);
+      letter-spacing: 0.5px;
+    }
+
+    /* ---- Custom marker dots ---- */
+    .m-dot {
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      border: 2px solid #fff;
+      box-shadow: 0 1px 5px rgba(0,0,0,0.55);
+    }
+
+    /* Rush Creek special marker — slightly larger */
+    .m-dot-lg {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      border: 2.5px solid #fff;
+      box-shadow: 0 1px 6px rgba(0,0,0,0.6);
+    }
+  </style>
+</head>
+<body>
+
+<div id="map"></div>
+
+<!-- Leaflet JS -->
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+
+<script>
+  /* ============================================================
+     MAP INIT
+  ============================================================ */
+  var map = L.map('map', {
+    center: [37.72, -119.68],
+    zoom: 11,
+    zoomControl: true
+  });
+
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    attribution:
+      '&copy; <a href="https://www.openstreetmap.org/copyright" target="_blank">OpenStreetMap</a> contributors',
+    maxZoom: 19
+  }).addTo(map);
+
+  /* ============================================================
+     HELPERS
+  ============================================================ */
+  var CAT = {
+    lodging:   '#e74c3c',
+    entrance:  '#27ae60',
+    viewpoint: '#2980b9',
+    waterfall: '#8e44ad',
+    visitor:   '#d97706',
+    trail:       '#0d9488',
+    hikingTrail: '#e67e22'
+  };
+
+  function dotIcon(color, large) {
+    var sz = large ? 18 : 14;
+    var cls = large ? 'm-dot-lg' : 'm-dot';
+    return L.divIcon({
+      className: '',
+      html: '<div class="' + cls + '" style="background:' + color + ';"></div>',
+      iconSize: [sz, sz],
+      iconAnchor: [sz / 2, sz / 2],
+      popupAnchor: [0, -(sz / 2 + 4)]
+    });
+  }
+
+  function addMarkers(list, color, large) {
+    list.forEach(function(p) {
+      var html = '<b>' + p.name + '</b>';
+      if (p.desc) html += '<br><span style="font-size:12px;color:#444;">' + p.desc + '</span>';
+      if (p.note) html += '<br><em style="font-size:11px;color:#c0392b;">' + p.note + '</em>';
+      L.marker(p.coords, { icon: dotIcon(color, large || false) })
+        .addTo(map)
+        .bindPopup(html, { maxWidth: 240 });
+    });
+  }
+
+  /* ============================================================
+     LODGING (red)
+  ============================================================ */
+  addMarkers([
+    {
+      name: 'Rush Creek Lodge',
+      coords: [37.8752, -119.9046],
+      desc: 'On Hwy 120, ~1 mi west of Big Oak Flat Entrance. Great western base for Yosemite.',
+      note: '★ Your trip base (outside park boundary)'
+    },
+    {
+      name: 'The Ahwahnee',
+      coords: [37.7467, -119.5574],
+      desc: 'Historic luxury hotel in Yosemite Valley.'
+    },
+    {
+      name: 'Yosemite Valley Lodge',
+      coords: [37.7454, -119.5994],
+      desc: 'Valley lodge near Yosemite Falls trailhead.'
+    },
+    {
+      name: 'Half Dome Village (Curry Village)',
+      coords: [37.7371, -119.5588],
+      desc: 'Cabins and tent cabins in the eastern valley.'
+    },
+    {
+      name: 'Wawona Hotel',
+      coords: [37.5378, -119.6548],
+      desc: 'Historic hotel near south entrance and Mariposa Grove.'
+    }
+  ], CAT.lodging, false);
+
+  /* Rush Creek gets a larger dot to stand out */
+  /* Already added above — add an extra label marker */
+
+  /* ============================================================
+     ENTRANCES (green)
+  ============================================================ */
+  addMarkers([
+    {
+      name: 'Big Oak Flat Entrance — Hwy 120 W',
+      coords: [37.8755, -119.8864],
+      desc: 'Main west entrance from Bay Area / Groveland. Rush Creek Lodge is 1 mi west of here.'
+    },
+    {
+      name: 'Arch Rock Entrance — Hwy 140',
+      coords: [37.6745, -119.7966],
+      desc: 'Entrance via Merced / El Portal. Lower elevation, often snow-free.'
+    },
+    {
+      name: 'South Entrance — Hwy 41',
+      coords: [37.5096, -119.6403],
+      desc: 'Entrance from Fresno. Access to Wawona and Mariposa Grove.'
+    },
+    {
+      name: 'Tioga Pass Entrance — Hwy 120 E',
+      coords: [37.9104, -119.2520],
+      desc: 'CLOSED in late March. Typically reopens May–June after snowpack clears.',
+      note: 'CLOSED — not accessible March 26–29'
+    },
+    {
+      name: 'Hetch Hetchy Entrance',
+      coords: [37.9476, -119.7856],
+      desc: 'Access to Hetch Hetchy Reservoir via Mather Station.'
+    }
+  ], CAT.entrance);
+
+  /* ============================================================
+     VIEWPOINTS / LANDMARKS (blue)
+  ============================================================ */
+  addMarkers([
+    {
+      name: 'Tunnel View',
+      coords: [37.7160, -119.6763],
+      desc: 'Classic panoramic of Yosemite Valley — El Cap, Half Dome, Bridalveil Fall all in one frame.'
+    },
+    {
+      name: 'Valley View',
+      coords: [37.7240, -119.6680],
+      desc: 'Roadside pullout with views of El Capitan and the Merced River.'
+    },
+    {
+      name: 'El Capitan Meadow',
+      coords: [37.7335, -119.6390],
+      desc: 'Best ground-level view of El Capitan (3,000 ft sheer granite face).'
+    },
+    {
+      name: "Cook's Meadow",
+      coords: [37.7443, -119.5960],
+      desc: 'Open meadow with views of Half Dome, Yosemite Falls, and Royal Arches.'
+    },
+    {
+      name: 'Half Dome',
+      coords: [37.7459, -119.5332],
+      desc: 'Iconic 8,839 ft granite dome. Cables not installed until late May — view from valley floor.'
+    },
+    {
+      name: 'El Capitan',
+      coords: [37.7336, -119.6377],
+      desc: 'The largest granite monolith on Earth — 3,000 ft of sheer vertical rock.'
+    },
+    {
+      name: 'Glacier Point',
+      coords: [37.7278, -119.5724],
+      desc: 'Panoramic overlook of the valley 3,200 ft below. Road likely closed in late March.',
+      note: 'Glacier Point Road typically closed until May'
+    },
+    {
+      name: 'Sentinel Dome',
+      coords: [37.7142, -119.5852],
+      desc: '360° summit views. Requires Glacier Point Road — likely closed in late March.',
+      note: 'Access depends on road conditions'
+    },
+    {
+      name: 'Taft Point',
+      coords: [37.7132, -119.5981],
+      desc: 'Dramatic cliff-edge viewpoint with fissures. Requires Glacier Point Road.',
+      note: 'Access depends on road conditions'
+    },
+    {
+      name: 'Hetch Hetchy Reservoir',
+      coords: [37.9531, -119.7896],
+      desc: "San Francisco's main water supply — scenic valley flooded in 1923. O'Shaughnessy Dam viewpoint."
+    }
+  ], CAT.viewpoint);
+
+  /* ============================================================
+     WATERFALLS (purple)
+  ============================================================ */
+  addMarkers([
+    {
+      name: 'Yosemite Falls',
+      coords: [37.7565, -119.5966],
+      desc: "North America's tallest waterfall (2,425 ft). Late March = near peak snowmelt flow. Don't miss!"
+    },
+    {
+      name: 'Bridalveil Fall',
+      coords: [37.7161, -119.6485],
+      desc: '620 ft. Flows year-round. Easy 0.5-mile paved walk from parking. Often misty.'
+    },
+    {
+      name: 'Vernal Fall',
+      coords: [37.7274, -119.5450],
+      desc: '317 ft via Mist Trail. Expect ice and wet trail conditions in late March.'
+    },
+    {
+      name: 'Nevada Fall',
+      coords: [37.7268, -119.5284],
+      desc: '594 ft. Above Vernal Fall. Upper Mist Trail likely icy / snowy in late March.'
+    },
+    {
+      name: 'Horsetail Fall',
+      coords: [37.7223, -119.6328],
+      desc: 'Famous for "firefall" light effect in February, but still flowing strong in late March.'
+    },
+    {
+      name: 'Ribbon Fall',
+      coords: [37.7358, -119.6417],
+      desc: '1,612 ft — longest single-drop fall in the park. Only flows during spring snowmelt. Peak season!'
+    }
+  ], CAT.waterfall);
+
+  /* ============================================================
+     VISITOR CENTERS / SERVICES (orange)
+  ============================================================ */
+  addMarkers([
+    {
+      name: 'Yosemite Valley Visitor Center',
+      coords: [37.7490, -119.5880],
+      desc: 'Main visitor center in Yosemite Village. Maps, exhibits, ranger talks, wilderness permits.'
+    },
+    {
+      name: 'Yosemite Village',
+      coords: [37.7491, -119.5855],
+      desc: 'Main services hub: Village Store, Degnan\'s Kitchen, post office, medical clinic, ATM.'
+    },
+    {
+      name: 'Mariposa Grove Welcome Plaza',
+      coords: [37.5074, -119.6177],
+      desc: 'Trailhead for Mariposa Grove — 500+ giant sequoias. Shuttle from here into the grove.'
+    },
+    {
+      name: 'Yosemite Valley Wilderness Center',
+      coords: [37.7488, -119.5870],
+      desc: 'Wilderness permits, bear canisters, trail conditions for backcountry trips.'
+    }
+  ], CAT.visitor);
+
+  /* ============================================================
+     TRAILHEADS (teal)
+  ============================================================ */
+  addMarkers([
+    {
+      name: 'Valley Floor Loop',
+      coords: [37.7448, -119.5962],
+      desc: 'Flat 11.5-mile loop of the entire valley. Best option in late March — minimal elevation, often clear.'
+    },
+    {
+      name: 'Mirror Lake Loop — Trailhead',
+      coords: [37.7395, -119.5599],
+      desc: '4.4 mi loop · Easy · Minimal elevation. Start at Shuttle Stop 17. Late March: Tenaya Creek runs high from snowmelt — stunning Half Dome reflections. Less crowded than other Valley trails.'
+    },
+    {
+      name: 'Happy Isles / Mist Trail',
+      coords: [37.7320, -119.5584],
+      desc: 'Trailhead for Vernal & Nevada Falls. Expect icy/wet conditions on trail in late March.'
+    },
+    {
+      name: 'Bridalveil Fall Trailhead',
+      coords: [37.7163, -119.6525],
+      desc: 'Short 0.5-mi paved walk to base of Bridalveil Fall. Usually accessible year-round.'
+    },
+    {
+      name: 'Lower Yosemite Fall Trailhead',
+      coords: [37.7490, -119.5986],
+      desc: '1-mile paved loop to base of Lower Yosemite Fall. Great for late March high-water flow.'
+    },
+    {
+      name: 'Mariposa Grove Trailhead',
+      coords: [37.5058, -119.6189],
+      desc: '2–6 mile options through giant sequoias. Some snow likely in late March at 5,600 ft elevation.'
+    },
+    {
+      name: 'Four Mile Trail',
+      coords: [37.7196, -119.6156],
+      desc: 'Steep trail toward Glacier Point. Closed above Union Point due to snow, ice, and rockfall hazard.',
+      note: 'CONFIRMED CLOSED 2026 — hazardous conditions near Union Point'
+    }
+  ], CAT.trail);
+
+  /* ============================================================
+     MIST TRAIL TO VERNAL FALL — 3.6 mi RT · Moderate · ~1,000 ft
+     Winter route: lower Mist Trail stairs CLOSED, use JMT detour.
+     Sections are drawn in order so popups work cleanly.
+  ============================================================ */
+
+  // -- Shared approach: Happy Isles → Vernal Fall Footbridge → junction (OPEN) --
+  L.polyline([
+    [37.7324, -119.5598], // Happy Isles trailhead
+    [37.7302, -119.5579], // south along Merced River
+    [37.7274, -119.5584], // follows river bank
+    [37.7266, -119.5580],
+    [37.7262, -119.5562], // trail bends east into canyon
+    [37.7261, -119.5530],
+    [37.7259, -119.5515], // Vernal Fall Footbridge
+    [37.7262, -119.5487]  // Mist Trail / JMT split
+  ], {
+    color: CAT.hikingTrail,
+    weight: 4,
+    opacity: 0.92,
+    lineJoin: 'round',
+    lineCap: 'round'
+  }).addTo(map)
+    .bindPopup(
+      '<b>Mist Trail to Vernal Fall — Approach</b>' +
+      '<br><span style="font-size:12px;color:#444;">Happy Isles &rarr; Vernal Fall Footbridge (0.8 mi, open year-round).' +
+      '<br>Footbridge is the last easy stop before steep terrain.</span>'
+    );
+
+  // -- JMT winter detour: junction → Clark Point → top of Vernal Fall (OPEN) --
+  L.polyline([
+    [37.7262, -119.5487], // split from Mist Trail
+    [37.7250, -119.5449], // Clark Point
+    [37.7238, -119.5435], // switchbacks heading south
+    [37.7219, -119.5387], // southernmost reach
+    [37.7218, -119.5355], // trail bends east
+    [37.7223, -119.5354],
+    [37.7246, -119.5331], // bridge over Merced
+    [37.7254, -119.5319], // ascending north
+    [37.7257, -119.5310],
+    [37.7261, -119.5304]  // top of Vernal Fall — rejoins Mist Trail
+  ], {
+    color: CAT.hikingTrail,
+    weight: 4,
+    opacity: 0.92,
+    lineJoin: 'round',
+    lineCap: 'round'
+  }).addTo(map)
+    .bindPopup(
+      '<b>John Muir Trail — Winter Detour (OPEN)</b>' +
+      '<br><span style="font-size:12px;color:#444;">Takes the JMT south via switchbacks through Clark Point, ' +
+      'then rejoins the Mist Trail above Vernal Fall. ' +
+      'Longer but safer than the icy stairs in late March.</span>' +
+      '<br><em style="font-size:11px;color:#2980b9;">Bring microspikes — shaded sections can be icy.</em>'
+    );
+
+  // -- Mist Trail stairs: junction → top (CLOSED in winter — icy granite steps) --
+  L.polyline([
+    [37.7262, -119.5487], // split
+    [37.7263, -119.5462], // base of granite stairs
+    [37.7269, -119.5429], // ascending stairs (600 steps)
+    [37.7270, -119.5418],
+    [37.7263, -119.5404], // bridge at top of stairs
+    [37.7265, -119.5392],
+    [37.7261, -119.5304]  // top of Vernal Fall
+  ], {
+    color: '#b0b0b0',
+    weight: 3,
+    dashArray: '6 5',
+    opacity: 0.75
+  }).addTo(map)
+    .bindPopup(
+      '<b>Mist Trail Stairs — CLOSED in winter</b>' +
+      '<br><span style="font-size:12px;color:#c0392b;">Icy granite steps from the footbridge to the top of Vernal Fall ' +
+      'are closed due to hazardous conditions in late March.' +
+      '<br>Use the John Muir Trail detour instead.</span>'
+    );
+
+  // -- Turnaround label at top of Vernal Fall --
+  L.marker([37.7261, -119.5304], {
+    icon: dotIcon(CAT.hikingTrail, false)
+  }).addTo(map)
+    .bindPopup(
+      '<b>Top of Vernal Fall — Turnaround (1.8 mi)</b>' +
+      '<br><span style="font-size:12px;color:#444;">317 ft waterfall viewpoint. ' +
+      'Mist Trail stairs and JMT detour rejoin here.</span>' +
+      '<br><strong style="font-size:12px;">3.6 mi RT &middot; Moderate &middot; ~1,000 ft gain</strong>'
+    );
+
+  // Trail 1 label — Mist Trail trailhead (Happy Isles)
+  L.marker([37.7324, -119.5598], {
+    icon: L.divIcon({
+      className: '',
+      html: '<div class="trail-lbl">3.6 mi RT &middot; ~3 hrs<br>Moderate &middot; &#8593;1,500 ft</div>',
+      iconSize: [120, 28], iconAnchor: [-16, 14]
+    })
+  }).addTo(map);
+
+  /* ============================================================
+     MIRROR LAKE LOOP — 4.4 mi loop · Easy · Minimal elevation
+     Follows Tenaya Creek east to Mirror Lake at base of Half Dome,
+     loops around the lake, returns on the north bank.
+  ============================================================ */
+  L.polyline([
+    // === EAST BANK (outbound) ===
+    [37.7394, -119.5597], // Shuttle Stop 17 — trailhead
+    [37.7407, -119.5596], // northeast on paved path (way 162322300)
+    [37.7414, -119.5592],
+    [37.7418, -119.5584],
+    [37.7420, -119.5579], // into Tenaya Canyon (way 292254779)
+    [37.7425, -119.5572],
+    [37.7433, -119.5567],
+    [37.7436, -119.5559],
+    [37.7441, -119.5530],
+    [37.7447, -119.5521],
+    [37.7453, -119.5511],
+    [37.7459, -119.5508],
+    [37.7467, -119.5509], // way 162322693
+    [37.7474, -119.5509],
+    [37.7477, -119.5507], // way 162322640
+    [37.7477, -119.5500],
+    [37.7481, -119.5497],
+    [37.7483, -119.5505],
+    // === MIRROR LAKE LOOP ===
+    [37.7494, -119.5490], // way 542859407 — east side of lake
+    [37.7499, -119.5490],
+    [37.7507, -119.5486],
+    [37.7512, -119.5483],
+    [37.7513, -119.5482], // NE corner (way 487817861)
+    [37.7507, -119.5482],
+    [37.7499, -119.5482],
+    [37.7498, -119.5484],
+    [37.7499, -119.5490], // rejoins east side
+    // === WEST BANK (return) ===
+    [37.7498, -119.5497], // transition to Valley Loop Trail (way 162322363)
+    [37.7496, -119.5504],
+    [37.7492, -119.5508],
+    [37.7488, -119.5511],
+    [37.7486, -119.5515],
+    [37.7481, -119.5522],
+    [37.7477, -119.5523],
+    [37.7469, -119.5527],
+    [37.7464, -119.5529],
+    [37.7456, -119.5533],
+    [37.7452, -119.5538],
+    [37.7449, -119.5547],
+    [37.7448, -119.5553],
+    [37.7445, -119.5558],
+    [37.7441, -119.5564],
+    [37.7440, -119.5566],
+    [37.7432, -119.5574], // cycleway (way 162322278)
+    [37.7431, -119.5582],
+    [37.7431, -119.5600],
+    [37.7394, -119.5597]  // back to Shuttle Stop 17
+  ], {
+    color: CAT.hikingTrail,
+    weight: 4,
+    opacity: 0.92,
+    lineJoin: 'round',
+    lineCap: 'round'
+  }).addTo(map)
+    .bindPopup(
+      '<b>Mirror Lake Loop</b>' +
+      '<br><strong style="font-size:12px;">4.4 mi loop &middot; Easy &middot; Minimal elevation</strong>' +
+      '<br><span style="font-size:12px;color:#444;">Follows Tenaya Creek east to Mirror Lake, situated in Tenaya Canyon ' +
+      'directly between North Dome and Half Dome. Last remnant of a large glacial lake that once filled the entire Yosemite Valley.' +
+      '<br><br>Late March: Creek runs high from snowmelt. The lake holds gorgeous mirror-still reflections of Half Dome\'s face. ' +
+      'Significantly less crowded than other Valley trails.</span>'
+    );
+
+  // Bridge crossing — top of Mirror Lake Loop (east → west bank)
+  L.marker([37.7497, -119.5493], {
+    icon: L.divIcon({
+      className: '',
+      html: '<div class="bridge-icon">BRDG</div>',
+      iconSize: [22, 16],
+      iconAnchor: [11, 8],
+      popupAnchor: [0, -12]
+    })
+  }).addTo(map)
+    .bindPopup(
+      '<b>Tenaya Creek Footbridge</b>' +
+      '<br><span style="font-size:12px;color:#444;">Cross here to switch from the east bank (outbound) ' +
+      'to the west bank return trail (Valley Loop Trail). ' +
+      'This is the only bridge at the top of the loop — at the far end near Mirror Lake.</span>'
+    );
+
+  // Trail 2 label — Mirror Lake Loop trailhead (Shuttle Stop 17)
+  L.marker([37.7394, -119.5599], {
+    icon: L.divIcon({
+      className: '',
+      html: '<div class="trail-lbl">4.4 mi loop &middot; ~2 hrs<br>Easy &middot; minimal gain</div>',
+      iconSize: [130, 28], iconAnchor: [-16, 14]
+    })
+  }).addTo(map);
+
+  // Mirror Lake label
+  L.marker([37.7499, -119.5487], {
+    icon: dotIcon(CAT.hikingTrail, false)
+  }).addTo(map)
+    .bindPopup(
+      '<b>Mirror Lake</b>' +
+      '<br><span style="font-size:12px;color:#444;">Seasonal lake on Tenaya Creek at the base of Half Dome. ' +
+      'In late March, snowmelt pools here forming stunning reflections of Half Dome and North Dome.</span>'
+    );
+
+  /* ============================================================
+     TRAIL 3 — Valley Loop Trail (West Section)
+     El Capitan Meadow → Valley View (west end) → Bridalveil Fall
+     ~3.5 mi one way · Easy · Flat valley floor
+     OSM ways: 162322354, 162322377, 1389402524, 1389402525, 1389402522
+  ============================================================ */
+  L.polyline([
+    // --- Section A: El Capitan Meadow → start of main west section ---
+    [37.7261, -119.6358],  // El Capitan Meadow (start)
+    [37.7255, -119.6375],  // heading west on valley floor
+    [37.7252, -119.6397],  // way 1389402524 east end
+    [37.7252, -119.6413],
+    [37.7252, -119.6428],
+    [37.7254, -119.6437],
+    [37.7254, -119.6446],  // way 1389402524 west end
+    [37.7248, -119.6447],  // way 1389402522/1389402525 connector
+    [37.7239, -119.6453],  // start of way 162322354
+    // --- Section B: North side — El Capitan meadow to Valley View ---
+    // way 162322354: 90 nodes thinned to key turns
+    [37.7237, -119.6459],
+    [37.7235, -119.6465],
+    [37.7233, -119.6473],
+    [37.7231, -119.6476],
+    [37.7231, -119.6484],
+    [37.7229, -119.6491],
+    [37.7226, -119.6496],
+    [37.7222, -119.6502],
+    [37.7220, -119.6507],
+    [37.7220, -119.6511],
+    [37.7219, -119.6514],
+    [37.7218, -119.6522],
+    [37.7217, -119.6530],
+    [37.7215, -119.6539],
+    [37.7214, -119.6543],
+    [37.7210, -119.6548],
+    [37.7207, -119.6554],
+    [37.7204, -119.6562],
+    [37.7202, -119.6566],
+    [37.7200, -119.6568],
+    [37.7199, -119.6575],
+    [37.7198, -119.6582],
+    [37.7199, -119.6592],
+    [37.7199, -119.6601],
+    [37.7197, -119.6605],
+    [37.7193, -119.6606],
+    [37.7191, -119.6608],
+    [37.7188, -119.6612],
+    [37.7184, -119.6616],
+    [37.7181, -119.6621],
+    [37.7180, -119.6626],
+    [37.7177, -119.6630],
+    [37.7174, -119.6637],
+    [37.7171, -119.6642],
+    [37.7170, -119.6646],
+    [37.7170, -119.6650],
+    [37.7171, -119.6653],
+    [37.7170, -119.6658],
+    [37.7168, -119.6661],  // Valley View / Pohono Bridge area
+    // --- Section C: South side — Valley View → Bridalveil Fall ---
+    // way 162322377: 95 nodes thinned to key turns
+    [37.7163, -119.6661],  // Pohono Bridge south side
+    [37.7162, -119.6657],
+    [37.7158, -119.6652],
+    [37.7152, -119.6648],
+    [37.7148, -119.6640],  // southernmost — near Cathedral Rocks base
+    [37.7148, -119.6639],
+    [37.7150, -119.6629],
+    [37.7153, -119.6624],
+    [37.7156, -119.6620],
+    [37.7158, -119.6615],
+    [37.7156, -119.6605],
+    [37.7156, -119.6600],
+    [37.7157, -119.6595],
+    [37.7162, -119.6591],
+    [37.7165, -119.6587],
+    [37.7168, -119.6585],
+    [37.7172, -119.6583],
+    [37.7178, -119.6583],
+    [37.7180, -119.6581],
+    [37.7181, -119.6577],  // turns east
+    [37.7178, -119.6574],
+    [37.7175, -119.6569],
+    [37.7172, -119.6561],
+    [37.7171, -119.6555],
+    [37.7172, -119.6549],  // turns northeast
+    [37.7177, -119.6545],
+    [37.7180, -119.6537],
+    [37.7183, -119.6534],
+    [37.7185, -119.6534],
+    [37.7188, -119.6531],
+    [37.7190, -119.6532],
+    [37.7192, -119.6532],
+    [37.7194, -119.6524],
+    [37.7196, -119.6522],
+    [37.7195, -119.6515],
+    [37.7195, -119.6505],
+    [37.7196, -119.6500],  // Valley Loop Trail south side — turn south to Bridalveil Fall
+    // --- Section D: south connector → Bridalveil Fall spur ---
+    [37.7188, -119.6503],
+    [37.7180, -119.6504],
+    [37.7175, -119.6500],  // Bridalveil Fall Trail junction (OSM ways 887059095 + 352325667)
+    [37.7175, -119.6493],
+    [37.7175, -119.6487],
+    [37.7176, -119.6483]   // Bridalveil Fall viewpoint
+  ], { color: CAT.hikingTrail, weight: 4, opacity: 0.92, lineJoin: 'round', lineCap: 'round' })
+    .addTo(map)
+    .bindPopup(
+      '<b>Valley Loop Trail &mdash; West Section</b>' +
+      '<br><strong style="font-size:12px;">~3.5 mi one way &middot; Easy &middot; Flat</strong>' +
+      '<br><span style="font-size:12px;color:#444;">Walk the flat valley floor with full-frame views of ' +
+      'El Capitan\'s 3,000-ft granite face on one side and Cathedral Rocks on the other. ' +
+      'In late March, the meadows are still partially snowy. ' +
+      'Ends at Bridalveil Fall — dramatic spring waterfall, at peak flow in late March from snowmelt. ' +
+      'Take the free Valley shuttle back from Bridalveil Fall E stop (Stop 8).</span>'
+    );
+
+  // El Capitan Meadow trail start marker
+  L.marker([37.7261, -119.6358], {
+    icon: L.divIcon({
+      className: '',
+      html: '<div style="background:' + CAT.hikingTrail + ';border:2px solid #fff;border-radius:50%;width:12px;height:12px;box-shadow:0 1px 3px rgba(0,0,0,.5);"></div>',
+      iconSize: [12, 12], iconAnchor: [6, 6], popupAnchor: [0, -10]
+    })
+  }).addTo(map).bindPopup(
+    '<b>Valley Loop Trail — Start</b>' +
+    '<br><span style="font-size:12px;color:#444;">El Capitan Meadow. Head west — El Capitan rises 3,000 ft above you ' +
+    'to the north; Cathedral Rocks across the meadow to the south.</span>'
+  );
+
+  // Trail 3 label — Valley Loop Trail start (El Capitan Meadow)
+  L.marker([37.7261, -119.6358], {
+    icon: L.divIcon({
+      className: '',
+      html: '<div class="trail-lbl">3.5 mi 1-way &middot; ~1.5 hrs<br>Easy &middot; flat</div>',
+      iconSize: [135, 28], iconAnchor: [-16, 14]
+    })
+  }).addTo(map);
+
+  /* ============================================================
+     TRAIL 4 — Wapama Falls Trail (Hetch Hetchy)
+     O'Shaughnessy Dam → Wapama Falls — 4.8 mi RT · Easy-Moderate · ~300 ft gain
+     OSM ways: 162652931, 1429640142, 162652971, 1185727843 + footbridges
+  ============================================================ */
+  L.polyline([
+    // Way 162652931: Dam area heading NE along reservoir shore
+    [37.9499, -119.7898],  // O'Shaughnessy Dam — trailhead
+    [37.9505, -119.7897],
+    [37.9511, -119.7890],
+    [37.9520, -119.7889],
+    [37.9529, -119.7884],
+    [37.9534, -119.7884],
+    [37.9540, -119.7881],
+    [37.9546, -119.7879],
+    [37.9550, -119.7876],
+    [37.9555, -119.7876],
+    [37.9561, -119.7874],
+    [37.9565, -119.7872],
+    [37.9568, -119.7871],
+    [37.9571, -119.7867],
+    // Way 1429640142: connector
+    [37.9572, -119.7864],
+    [37.9572, -119.7861],
+    [37.9572, -119.7856],
+    [37.9574, -119.7855],
+    [37.9577, -119.7854],
+    [37.9579, -119.7851],
+    [37.9580, -119.7846],
+    // Way 162652971: reservoir south shore heading east
+    [37.9576, -119.7844],
+    [37.9576, -119.7840],
+    [37.9576, -119.7834],
+    [37.9577, -119.7829],
+    [37.9581, -119.7829],
+    [37.9584, -119.7827],
+    [37.9588, -119.7821],
+    [37.9590, -119.7818],
+    [37.9590, -119.7815],
+    [37.9587, -119.7799],
+    [37.9587, -119.7793],
+    [37.9588, -119.7783],
+    [37.9590, -119.7774],
+    [37.9593, -119.7768],
+    [37.9596, -119.7763],
+    [37.9601, -119.7757],
+    [37.9606, -119.7751],
+    [37.9610, -119.7736],
+    [37.9617, -119.7725],
+    [37.9621, -119.7722],
+    // Way 1185727843: approach to Wapama Falls footbridges
+    [37.9624, -119.7718],
+    [37.9627, -119.7711],
+    [37.9629, -119.7703],
+    [37.9630, -119.7699],
+    [37.9631, -119.7694],
+    [37.9633, -119.7688],
+    [37.9633, -119.7681],
+    [37.9632, -119.7675],
+    [37.9632, -119.7671],
+    [37.9632, -119.7668],
+    // Footbridges over Wapama Creek (826005587 → 162652815 → 162652358 → 162652378)
+    [37.9633, -119.7664],
+    [37.9634, -119.7661],
+    [37.9635, -119.7658],
+    [37.9636, -119.7656],
+    [37.9637, -119.7654]   // Wapama Falls viewpoint — turnaround
+  ], { color: CAT.hikingTrail, weight: 4, opacity: 0.92, lineJoin: 'round', lineCap: 'round' })
+    .addTo(map)
+    .bindPopup(
+      '<b>Wapama Falls Trail — Hetch Hetchy</b>' +
+      '<br><strong style="font-size:12px;">4.8 mi RT &middot; Easy-Moderate &middot; ~300 ft gain</strong>' +
+      '<br><span style="font-size:12px;color:#444;">Starts at O\'Shaughnessy Dam, follows the crystal-clear ' +
+      'reservoir shore past stunning granite reflections to 1,000-ft Wapama Falls. ' +
+      'In late March, the falls thunder with snowmelt and very few visitors come up here. ' +
+      'The 45-min drive from the valley is worth it — you\'ll practically have it to yourself. ' +
+      'John Muir called this valley the most beautiful in all of Yosemite before it was dammed.</span>'
+    );
+
+  // Wapama Falls marker
+  L.marker([37.9637, -119.7654], {
+    icon: dotIcon(CAT.waterfall, false)
+  }).addTo(map).bindPopup(
+    '<b>Wapama Falls</b>' +
+    '<br><span style="font-size:12px;color:#444;">~1,000-ft waterfall over granite. ' +
+    'At peak flow in late March — trail crosses several footbridges at the base. ' +
+    'In high-water years some bridges may be submerged; check conditions before visiting.</span>'
+  );
+
+  // Wapama Falls Trail — trailhead marker at O'Shaughnessy Dam
+  L.marker([37.9499, -119.7898], {
+    icon: dotIcon(CAT.trail, false)
+  }).addTo(map).bindPopup(
+    '<b>Wapama Falls Trailhead</b>' +
+    '<br><span style="font-size:12px;color:#444;">Trail starts at the east end of O\'Shaughnessy Dam. ' +
+    'Parking lot at the dam. 45 min from Yosemite Valley via Hetch Hetchy Road. ' +
+    'Gate opens at 8am, closes at 5pm (check current NPS hours).</span>'
+  );
+
+  // Trail 4 label — Wapama Falls trailhead (O'Shaughnessy Dam)
+  L.marker([37.9499, -119.7898], {
+    icon: L.divIcon({
+      className: '',
+      html: '<div class="trail-lbl">4.8 mi RT &middot; ~2.5 hrs<br>Easy-Mod &middot; &#8593;300 ft</div>',
+      iconSize: [130, 28], iconAnchor: [-16, 14]
+    })
+  }).addTo(map);
+
+  /* ============================================================
+     DRIVING ROUTE: Rush Creek Lodge → Yosemite Village
+     Source: OSRM routing on OSM road network (~35 mi / ~84 min)
+     Via Big Oak Flat Road (Hwy 120 W). Open year-round.
+     Tioga Road at Crane Flat is CLOSED — route stays south.
+  ============================================================ */
+  L.polyline([
+    [37.8735, -119.9029], // Rush Creek Lodge
+    [37.8758, -119.8898],
+    [37.8787, -119.8755], // Big Oak Flat Entrance (park boundary)
+    [37.8825, -119.8556], // junction — Big Oak Flat Rd heads south
+    [37.8676, -119.8663], // Big Oak Flat Road descending through forest
+    [37.8498, -119.8612],
+    [37.8283, -119.8563],
+    [37.8151, -119.8752],
+    [37.7856, -119.8734],
+    [37.7712, -119.8615],
+    [37.7639, -119.8463],
+    [37.7602, -119.8326], // Crane Flat — Tioga Rd junction (CLOSED, stay straight)
+    [37.7531, -119.8108],
+    [37.7505, -119.7836],
+    [37.7402, -119.7733], // valley descent begins
+    [37.7301, -119.7564],
+    [37.7246, -119.7478],
+    [37.7175, -119.7231],
+    [37.7224, -119.7193], // valley floor
+    [37.7279, -119.7106],
+    [37.7233, -119.6976],
+    [37.7192, -119.6824], // Northside Drive junction
+    [37.7167, -119.6662],
+    [37.7173, -119.6532],
+    [37.7201, -119.6492],
+    [37.7209, -119.6284], // fork — Southside Drive east
+    [37.7242, -119.6176],
+    [37.7276, -119.6079],
+    [37.7334, -119.6027],
+    [37.7398, -119.5935],
+    [37.7431, -119.5898], // Sentinel Drive
+    [37.7450, -119.5863],
+    [37.7475, -119.5857], // Village Drive
+    [37.7492, -119.5855]  // Yosemite Village
+  ], {
+    color: '#1565C0',
+    weight: 5,
+    opacity: 0.8,
+    lineJoin: 'round',
+    lineCap: 'round'
+  }).addTo(map)
+    .bindPopup(
+      '<b>Rush Creek Lodge &rarr; Yosemite Village</b>' +
+      '<br><strong style="font-size:12px;">~35 mi &middot; ~84 min</strong>' +
+      '<br><span style="font-size:12px;color:#444;">Via Big Oak Flat Road (Hwy 120) &mdash; open year-round.' +
+      '<br><span style="color:#c0392b;">At Crane Flat: stay on Big Oak Flat Road. Do NOT turn onto Tioga Road (closed until May/June).</span></span>'
+    );
+
+  // Crane Flat junction marker — where Tioga Road branches (CLOSED)
+  L.marker([37.7602, -119.8240], {
+    icon: dotIcon('#e74c3c', false)
+  }).addTo(map)
+    .bindPopup(
+      '<b>Crane Flat — Tioga Road Junction</b>' +
+      '<br><span style="color:#c0392b;font-weight:600;">Tioga Road (Hwy 120 E) branches here &mdash; CLOSED in late March.</span>' +
+      '<br><span style="font-size:12px;color:#444;">Stay straight/south on Big Oak Flat Road toward the valley. ' +
+      'Tioga Road does not reopen until May or June after snowplowing.</span>'
+    );
+
+  /* ============================================================
+     APPROXIMATE PARK BOUNDARY (simplified polygon)
+  ============================================================ */
+  L.polygon([
+    [37.9580, -119.8920],
+    [37.9600, -119.7500],
+    [37.9900, -119.6400],
+    [37.9580, -119.5000],
+    [37.9100, -119.2530],
+    [37.8300, -119.1950],
+    [37.7200, -119.1800],
+    [37.6480, -119.2530],
+    [37.5850, -119.3500],
+    [37.4900, -119.5050],
+    [37.4950, -119.6500],
+    [37.5200, -119.8500],
+    [37.6050, -119.9050],
+    [37.7050, -119.9500],
+    [37.8100, -119.9500],
+    [37.8900, -119.9300],
+    [37.9580, -119.8920]
+  ], {
+    color: '#2c5f2e',
+    weight: 2,
+    dashArray: '7 5',
+    fillColor: '#4a7c59',
+    fillOpacity: 0.06
+  }).addTo(map)
+    .bindPopup('<b>Yosemite National Park</b><br>~748,036 acres &mdash; Est. 1890<br><small style="color:#666;">Boundary is approximate / simplified</small>');
+
+  /* ============================================================
+     TIOGA ROAD (closed in late March) — dashed line
+  ============================================================ */
+  L.polyline([
+    [37.8755, -119.8864], // Big Oak Flat
+    [37.8736, -119.6000],
+    [37.8736, -119.3564], // Tuolumne Meadows
+    [37.9104, -119.2520]  // Tioga Pass
+  ], {
+    color: '#e74c3c',
+    weight: 3,
+    dashArray: '8 6',
+    opacity: 0.7
+  }).addTo(map)
+    .bindPopup('<b>Tioga Road (Hwy 120 E)</b><br><span style="color:#c0392b;font-weight:600;">CLOSED</span> — typically reopens May/June after snowpack clears.');
+
+  /* ============================================================
+     LEGEND CONTROL
+  ============================================================ */
+  var legendControl = L.control({ position: 'topright' });
+  legendControl.onAdd = function () {
+    var div = L.DomUtil.create('div', 'legend-panel');
+    div.innerHTML =
+      '<h2>Yosemite National Park</h2>' +
+      '<div class="dates">March 26&ndash;29, 2026</div>' +
+
+      '<div class="legend-item">' +
+        '<div class="legend-dot" style="background:' + CAT.lodging + ';"></div> Lodging' +
+      '</div>' +
+      '<div class="legend-item">' +
+        '<div class="legend-dot" style="background:' + CAT.entrance + ';"></div> Park Entrances' +
+      '</div>' +
+      '<div class="legend-item">' +
+        '<div class="legend-dot" style="background:' + CAT.viewpoint + ';"></div> Viewpoints &amp; Landmarks' +
+      '</div>' +
+      '<div class="legend-item">' +
+        '<div class="legend-dot" style="background:' + CAT.waterfall + ';"></div> Waterfalls' +
+      '</div>' +
+      '<div class="legend-item">' +
+        '<div class="legend-dot" style="background:' + CAT.visitor + ';"></div> Visitor Centers &amp; Services' +
+      '</div>' +
+      '<div class="legend-item">' +
+        '<div class="legend-dot" style="background:' + CAT.trail + ';"></div> Trailheads' +
+      '</div>' +
+      '<div class="legend-item">' +
+        '<div style="width:28px;height:4px;border-top:5px solid #1565C0;margin-top:3px;border-radius:2px;"></div>' +
+        '&nbsp;Driving Route' +
+      '</div>' +
+      '<div class="legend-item">' +
+        '<div style="width:28px;height:3px;border-top:4px solid ' + CAT.hikingTrail + ';margin-top:3px;border-radius:2px;"></div>' +
+        '&nbsp;Hiking Trail (open)' +
+      '</div>' +
+      '<div class="legend-item">' +
+        '<div style="width:28px;height:3px;border-top:3px dashed #b0b0b0;margin-top:3px;"></div>' +
+        '&nbsp;Trail (winter closed)' +
+      '</div>' +
+      '<div class="legend-item">' +
+        '<div style="width:28px;height:3px;border-top:3px dashed #e74c3c;margin-top:3px;"></div>' +
+        '&nbsp;Tioga Rd (CLOSED)' +
+      '</div>' +
+
+      '<div class="notice">' +
+        '<strong>Late March notes:</strong><br>' +
+        'Tioga Road &amp; Glacier Point Road closed.<br>' +
+        'Waterfalls near peak snowmelt flow.<br>' +
+        'Bring microspikes for icy trails.<br>' +
+        'Valley floor trails generally open.' +
+      '</div>';
+    return div;
+  };
+  legendControl.addTo(map);
+
+  /* ============================================================
+     FIT BOUNDS: Rush Creek Lodge (W) to east side of park
+  ============================================================ */
+  map.fitBounds([
+    [37.49, -119.96],   // SW — south of Wawona, just past Rush Creek
+    [37.97, -119.17]    // NE — north edge, east of Tioga Pass
+  ]);
+</script>
+
+</body>
+</html>
